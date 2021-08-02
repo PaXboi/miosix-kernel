@@ -27,7 +27,7 @@
 #INSTALL_DIR=/opt/arm-miosix-eabi
 #SUDO=sudo
 # Uncomment if installing locally, sudo isn't necessary
-INSTALL_DIR=`pwd`/gcc/arm-miosix-eabi
+INSTALL_DIR=`pwd`/gcc/toolchain
 SUDO=
 
 # Uncomment if targeting a local install (linux only). This will use
@@ -41,8 +41,8 @@ HOST=
 #HOST=x86_64-w64-mingw32
 
 #### Configuration tunables -- end ####
-# Valid targets for the toolchain
-VALID_T="arm h8300"
+# Valid target triplets for the toolchain
+VALID_T="arm-miosix-eabi h8300-miosix-elf"
 TARGET=
 
 # Libraries are compiled statically, so they are never installed in the system
@@ -72,9 +72,11 @@ if [[ $SUDO ]]; then
 	fi
 fi
 
+# TODO: Make this use $VALID_T to validate
 if [[ -n $2 ]]; then
-	if [[ "$2" == @(arm|h8300) ]]; then
+	if [[ "$2" == @(arm-miosix-eabi|h8300-miosix-elf) ]]; then
 		TARGET=$2
+		INSTALL_DIR=`pwd`/gcc/$TARGET
 	else
 		echo "$2"
 		quit ":: Invalid target"
@@ -167,7 +169,7 @@ mkdir log
 patch -p0 < patches/target/none/gcc.patch		|| quit ":: Failed patching gcc"
 patch -p0 < patches/target/none/newlib.patch	|| quit ":: Failed patching newlib"
 
-if [[ $TARGET == "arm" ]]; then
+if [[ $TARGET == "arm-miosix-eabi" ]]; then
 	patch -p0 < patches/target/arm/gcc-arm.patch
 	patch -p0 < patches/target/arm/binutils-arm.patch
 fi
@@ -248,7 +250,7 @@ cd $BINUTILS
 ./configure \
 	--build=`./config.guess` \
 	--host=$HOST \
-	--target=$TARGET-miosix-eabi \
+	--target=$TARGET \
 	--prefix=$INSTALL_DIR \
 	--enable-interwork \
 	--enable-multilib \
@@ -271,7 +273,7 @@ cd objdir
 $SUDO ../$GCC/configure \
 	--build=`../$GCC/config.guess` \
 	--host=$HOST \
-	--target=$TARGET-miosix-eabi \
+	--target=$TARGET \
 	--with-gmp=$LIB_DIR \
 	--with-mpfr=$LIB_DIR \
 	--with-mpc=$LIB_DIR \
@@ -310,13 +312,13 @@ $SUDO make install-gcc 2>../log/f.txt		|| quit ":: Error installing gcc-start"
 # This causes troubles because newlib.h contains the _WANT_REENT_SMALL used to
 # select the appropriate _Reent struct. This error is visible to user code since
 # GCC seems to take the wrong newlib.h and user code gets the wrong _Reent struct
-$SUDO rm -rf $INSTALL_DIR/$TARGET-miosix-eabi/sys-include
+$SUDO rm -rf $INSTALL_DIR/$TARGET/sys-include
 
 # Another fix, looks like export PATH isn't enough for newlib, it fails
 # running arm-miosix-eabi-ranlib when installing
 if [[ $SUDO ]]; then
 	# This is actually done also later, but we don't want to add a symlink too
-	$SUDO rm $INSTALL_DIR/bin/$TARGET-miosix-eabi-$GCC$EXT
+	$SUDO rm $INSTALL_DIR/bin/$TARGET-$GCC$EXT
 
 	$SUDO ln -s $INSTALL_DIR/bin/* /usr/bin
 fi
@@ -333,7 +335,7 @@ cd newlib-obj
 ../$NEWLIB/configure \
 	--build=`../$GCC/config.guess` \
 	--host=$HOST \
-	--target=$TARGET-miosix-eabi \
+	--target=$TARGET \
 	--prefix=$INSTALL_DIR \
 	--enable-multilib \
 	--enable-newlib-reent-small \
@@ -394,8 +396,8 @@ check_multilibs() {
 	fi 
 }
 
-# TODO: Implement for other targets?
-if [[ $TARGET == "arm" ]]; then
+# TODO: Implement for other targets
+if [[ $TARGET == "arm-miosix-eabi" ]]; then
 	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib
 	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm0
 	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm3
@@ -461,7 +463,7 @@ cd gdb-obj
 CXX=$HOSTCXX ../$GDB/configure \
 	--build=`../$GDB/config.guess` \
 	--host=$HOST \
-	--target=$TARGET-miosix-eabi \
+	--target=$TARGET \
 	--prefix=$INSTALL_DIR \
 	--with-libmpfr-prefix=$LIB_DIR \
 	--with-expat-prefix=$LIB_DIR \
@@ -528,7 +530,7 @@ fi
 #
 
 # Remove this since its name is not arm-miosix-eabi-
-$SUDO rm $INSTALL_DIR/bin/arm-miosix-eabi-$GCC$EXT
+$SUDO rm $INSTALL_DIR/bin/$TARGET-$GCC$EXT
 
 # Strip stuff that is very large when having debug symbols to save disk space
 # This simple thing can easily save 500+MB
@@ -570,7 +572,7 @@ else
 		echo '# Used when installing the compiler locally to test it' > env.sh
 		echo '# usage: $ . ./env.sh' >> env.sh
 		echo '# or     $ source ./env.sh' >> env.sh
-		echo "export PATH=`pwd`/gcc/arm-miosix-eabi/bin:"'$PATH' >> env.sh
+		echo "export PATH=`pwd`/gcc/$TARGET/bin:"'$PATH' >> env.sh
 		chmod +x env.sh
 	fi
 fi
