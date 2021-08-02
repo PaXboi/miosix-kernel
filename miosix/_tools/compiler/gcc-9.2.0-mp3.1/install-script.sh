@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Script to build the gcc compiler required for Miosix.
-# Usage: ./install-script -j`nproc`
+# Usage: ./install-script -t target -j`nproc`
+# The -t parameter defines the toolchain target
 # The -j parameter is passed to make for parallel compilation
 #
 # Building Miosix is officially supported only through the gcc compiler built
@@ -15,7 +16,7 @@
 # download the binary relase from http://miosix.org instead of compiling GCC
 # using this script.
 #
-# This script will install arm-miosix-eabi-gcc in /opt, creating links to
+# This script will install target-miosix-eabi-gcc in /opt, creating links to
 # binaries in /usr/bin.
 # It should be run without root privileges, but it will ask for the root
 # password when installing files to /opt and /usr/bin
@@ -23,11 +24,11 @@
 #### Configuration tunables -- begin ####
 
 # Uncomment if installing globally on the system
-INSTALL_DIR=/opt/arm-miosix-eabi
-SUDO=sudo
+#INSTALL_DIR=/opt/arm-miosix-eabi
+#SUDO=sudo
 # Uncomment if installing locally, sudo isn't necessary
-#INSTALL_DIR=`pwd`/gcc/arm-miosix-eabi
-#SUDO=
+INSTALL_DIR=`pwd`/gcc/arm-miosix-eabi
+SUDO=
 
 # Uncomment if targeting a local install (linux only). This will use
 # -march= -mtune= flags to optimize for your processor, but the code
@@ -40,6 +41,9 @@ HOST=
 #HOST=x86_64-w64-mingw32
 
 #### Configuration tunables -- end ####
+# Valid targets for the toolchain
+VALID_T="arm h8300"
+TARGET=
 
 # Libraries are compiled statically, so they are never installed in the system
 LIB_DIR=`pwd`/lib
@@ -67,6 +71,18 @@ if [[ $SUDO ]]; then
 		quit ":: Error global install distributable compiling are mutually exclusive"
 	fi
 fi
+
+if [[ -n $2 ]]; then
+	if [[ "$2" == @(arm|h8300) ]]; then
+		TARGET=$2
+	else
+		echo "$2"
+		quit ":: Invalid target"
+	fi
+else
+	quit ":: Target not specified"
+fi
+
 
 if [[ $HOST ]]; then
 	# Canadian cross compiling requires to have the same version of the
@@ -112,10 +128,10 @@ else
 	EXT=
 fi
 
-if [[ $1 == '' ]]; then
+if [[ $4 == '' ]]; then
 	PARALLEL="-j1"
 else
-	PARALLEL=$1;
+	PARALLEL=$4;
 fi
 
 #
@@ -148,9 +164,13 @@ mkdir log
 # Part 2: applying patches
 #
 
-patch -p0 < patches/binutils.patch	|| quit ":: Failed patching binutils"
-patch -p0 < patches/gcc.patch		|| quit ":: Failed patching gcc"
-patch -p0 < patches/newlib.patch	|| quit ":: Failed patching newlib"
+patch -p0 < patches/target/none/gcc.patch		|| quit ":: Failed patching gcc"
+patch -p0 < patches/target/none/newlib.patch	|| quit ":: Failed patching newlib"
+
+if [[ $TARGET == "arm" ]]; then
+	patch -p0 < patches/target/arm/gcc-arm.patch
+	patch -p0 < patches/target/arm/binutils-arm.patch
+fi
 
 #
 # Part 3: compile libraries
@@ -228,7 +248,7 @@ cd $BINUTILS
 ./configure \
 	--build=`./config.guess` \
 	--host=$HOST \
-	--target=arm-miosix-eabi \
+	--target=$TARGET-miosix-eabi \
 	--prefix=$INSTALL_DIR \
 	--enable-interwork \
 	--enable-multilib \
@@ -251,7 +271,7 @@ cd objdir
 $SUDO ../$GCC/configure \
 	--build=`../$GCC/config.guess` \
 	--host=$HOST \
-	--target=arm-miosix-eabi \
+	--target=$TARGET-miosix-eabi \
 	--with-gmp=$LIB_DIR \
 	--with-mpfr=$LIB_DIR \
 	--with-mpc=$LIB_DIR \
@@ -290,13 +310,13 @@ $SUDO make install-gcc 2>../log/f.txt		|| quit ":: Error installing gcc-start"
 # This causes troubles because newlib.h contains the _WANT_REENT_SMALL used to
 # select the appropriate _Reent struct. This error is visible to user code since
 # GCC seems to take the wrong newlib.h and user code gets the wrong _Reent struct
-$SUDO rm -rf $INSTALL_DIR/arm-miosix-eabi/sys-include
+$SUDO rm -rf $INSTALL_DIR/$TARGET-miosix-eabi/sys-include
 
 # Another fix, looks like export PATH isn't enough for newlib, it fails
 # running arm-miosix-eabi-ranlib when installing
 if [[ $SUDO ]]; then
 	# This is actually done also later, but we don't want to add a symlink too
-	$SUDO rm $INSTALL_DIR/bin/arm-miosix-eabi-$GCC$EXT
+	$SUDO rm $INSTALL_DIR/bin/$TARGET-miosix-eabi-$GCC$EXT
 
 	$SUDO ln -s $INSTALL_DIR/bin/* /usr/bin
 fi
@@ -313,7 +333,7 @@ cd newlib-obj
 ../$NEWLIB/configure \
 	--build=`../$GCC/config.guess` \
 	--host=$HOST \
-	--target=arm-miosix-eabi \
+	--target=$TARGET-miosix-eabi \
 	--prefix=$INSTALL_DIR \
 	--enable-multilib \
 	--enable-newlib-reent-small \
@@ -374,15 +394,18 @@ check_multilibs() {
 	fi 
 }
 
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm0
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm3
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm4/hardfp/fpv4sp
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm7/hardfp/fpv5
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm3/pie/single-pic-base
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm4/hardfp/fpv4sp/pie/single-pic-base
-check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm7/hardfp/fpv5/pie/single-pic-base
-echo "::All multilibs have been built. OK"
+# TODO: Implement for other targets?
+if [[ $TARGET == "arm" ]]; then
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm0
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm3
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm4/hardfp/fpv4sp
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm7/hardfp/fpv5
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm3/pie/single-pic-base
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm4/hardfp/fpv4sp/pie/single-pic-base
+	check_multilibs $INSTALL_DIR/arm-miosix-eabi/lib/thumb/cm7/hardfp/fpv5/pie/single-pic-base
+	echo "::All arm multilibs have been built. OK"
+fi
 
 #
 # Part 9: compile and install gdb
@@ -438,7 +461,7 @@ cd gdb-obj
 CXX=$HOSTCXX ../$GDB/configure \
 	--build=`../$GDB/config.guess` \
 	--host=$HOST \
-	--target=arm-miosix-eabi \
+	--target=$TARGET-miosix-eabi \
 	--prefix=$INSTALL_DIR \
 	--with-libmpfr-prefix=$LIB_DIR \
 	--with-expat-prefix=$LIB_DIR \
