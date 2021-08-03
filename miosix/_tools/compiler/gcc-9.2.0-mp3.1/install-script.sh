@@ -130,7 +130,7 @@ else
 	EXT=
 fi
 
-if [[ $4 == '' ]]; then
+if [[ $3 == '' ]]; then
 	PARALLEL="-j1"
 else
 	PARALLEL=$4;
@@ -174,6 +174,9 @@ if [[ $TARGET == "arm-miosix-eabi" ]]; then
 	patch -p0 < patches/target/arm/binutils-arm.patch
 fi
 
+if [[ $TARGET == "h8300-miosix-elf" ]]; then
+	patch -p0 < patches/target/h8300/gcc-h8300.patch
+fi
 #
 # Part 3: compile libraries
 #

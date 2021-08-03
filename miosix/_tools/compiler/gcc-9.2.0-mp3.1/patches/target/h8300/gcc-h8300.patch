@@ -1,0 +1,48 @@
+--- gcc-9.2.0-old/gcc/config.gcc	2021-08-02 15:48:14.625663247 +0000
++++ gcc-9.2.0/gcc/config.gcc	2021-08-02 15:48:37.712329506 +0000
+@@ -1452,6 +1452,11 @@
+ 	tm_file="${tm_file} dbxelf.h elfos.h moxie/moxiebox.h newlib-stdint.h"
+ 	tmake_file="${tmake_file} moxie/t-moxiebox"
+ 	;;
++h8300-miosix-*)
++        tmake_file="${tmake_file} h8300/t-h8300"
++        tm_file="h8300/h8300.h dbxelf.h elfos.h newlib-stdint.h h8300/elf.h h8300/h8300-miosix.h"
++        use_gcc_stdint=wrap
++        ;;
+ h8300-*-elf*)
+ 	tmake_file="h8300/t-h8300"
+ 	tm_file="h8300/h8300.h dbxelf.h elfos.h newlib-stdint.h h8300/elf.h"
+--- gcc-9.2.0-old/libatomic/configure.tgt	2019-01-01 12:31:55.000000000 +0000
++++ gcc-9.2.0/libatomic/configure.tgt	2021-08-03 02:45:22.297612523 +0000
+@@ -153,6 +153,10 @@
+             ;;
+         esac
+ 	;;
++	
++  h8300-miosix-*)
++	config_path="miosix"
++	;;
+ 
+   *-*-rtems*)
+ 	XCFLAGS="${configure_tgt_pre_target_cpu_XCFLAGS}"
+diff -ruN gcc-9.2.0-old/gcc/config/h8300/h8300-miosix.h gcc-9.2.0/gcc/config/h8300/h8300-miosix.h
+--- gcc-9.2.0-old/gcc/config/h8300/h8300-miosix.h	1970-01-01 00:00:00.000000000 +0000
++++ gcc-9.2.0/gcc/config/h8300/h8300-miosix.h	2021-08-02 07:49:21.884244158 +0000
+@@ -0,0 +1,17 @@
++/*
++ * RATIONALE: adding builtin_define to always define _MIOSIX
++ * - when libgcc/libstdc++/newlib are compiled, as there are some #ifdef _MIOSIX
++ * - when Miosix processes are compiled, to allow #ifdef _MIOSIX
++ * Also add versioning to miosix-specific compiler patches.
++ * Note: intentionally breaking compatibility with previous compiler patches
++ * which defined _MIOSIX_GCC_PATCH_VERSION instead of _MIOSIX_GCC_PATCH_MAJOR
++ */
++
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()         \
++    do {                                 \
++        builtin_define("_MIOSIX");       \
++        builtin_define("_MIOSIX_GCC_PATCH_MAJOR=3"); \
++        builtin_define("_MIOSIX_GCC_PATCH_MINOR=1"); \
++        builtin_assert("system=miosix"); \
++    } while(false)
