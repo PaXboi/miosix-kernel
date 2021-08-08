@@ -317,7 +317,7 @@ int close(int fd)
  * \internal
  * _write_r, write to a file
  */
-int _write_r(struct _reent *ptr, int fd, const void *buf, size_t cnt)
+ssize_t _write_r(struct _reent *ptr, int fd, const void *buf, size_t cnt)
 {    
     #ifdef WITH_FILESYSTEM
 
@@ -349,7 +349,7 @@ int _write_r(struct _reent *ptr, int fd, const void *buf, size_t cnt)
     #endif //WITH_FILESYSTEM
 }
 
-int write(int fd, const void *buf, size_t cnt)
+ssize_t write(int fd, const void *buf, size_t cnt)
 {
     return _write_r(miosix::getReent(),fd,buf,cnt);
 }
@@ -358,7 +358,7 @@ int write(int fd, const void *buf, size_t cnt)
  * \internal
  * _read_r, read from a file
  */
-int _read_r(struct _reent *ptr, int fd, void *buf, size_t cnt)
+ssize_t _read_r(struct _reent *ptr, int fd, void *buf, size_t cnt)
 {
     #ifdef WITH_FILESYSTEM
 
@@ -390,7 +390,7 @@ int _read_r(struct _reent *ptr, int fd, void *buf, size_t cnt)
     #endif //WITH_FILESYSTEM
 }
 
-int read(int fd, void *buf, size_t cnt)
+ssize_t read(int fd, void *buf, size_t cnt)
 {
     return _read_r(miosix::getReent(),fd,buf,cnt);
 }

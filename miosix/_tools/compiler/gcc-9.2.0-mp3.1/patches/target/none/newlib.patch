@@ -63,7 +63,7 @@ diff -ruN newlib-3.1.0-old/newlib/libc/include/locale.h newlib-3.1.0/newlib/libc
 diff -ruN newlib-3.1.0-old/newlib/libc/include/sys/config.h newlib-3.1.0/newlib/libc/include/sys/config.h
 --- newlib-3.1.0-old/newlib/libc/include/sys/config.h	2019-01-01 05:40:11.000000000 +0100
 +++ newlib-3.1.0/newlib/libc/include/sys/config.h	2020-03-07 08:54:34.998943237 +0100
-@@ -234,6 +234,14 @@
+@@ -234,6 +234,15 @@
  #include <cygwin/config.h>
  #endif
  
@@ -73,6 +73,7 @@ diff -ruN newlib-3.1.0-old/newlib/libc/include/sys/config.h newlib-3.1.0/newlib/
 +#define _REENT_GLOBAL_ATEXIT /* No atexit stuff in _reent */
 +#define __DYNAMIC_REENT__ /* Enable __getreent() */
 +#define _REENT_GLOBAL_STDIO_STREAMS /* stdin/out/err shared for all threads */
++#define _READ_WRITE_RETURN_TYPE _ssize_t
 +#endif /* _MIOSIX */
 +
  #if defined(__rtems__)
@@ -7117,10 +7118,10 @@ diff -ruN newlib-3.1.0-old/newlib/libc/sys/miosix/stubs.c newlib-3.1.0/newlib/li
 +int    AW open(const char *a, int b, ...)                            { return -1; }
 +int    AW _close_r(struct _reent *a, int b)                          { return -1; }
 +int    AW close(int a)                                               { return -1; }
-+int    AW _write_r(struct _reent *a, int b, const void *c, size_t d) { return -1; }
-+int    AW write(int a, const void *b, size_t c)                      { return -1; }
-+int    AW _read_r( struct _reent *a, int b, void *c, size_t d)       { return -1; }
-+int    AW read(int a, void *b, size_t c)                             { return -1; }
++ssize_t AW _write_r(struct _reent *a, int b, const void *c, size_t d){ return -1; }
++ssize_t AW write(int a, const void *b, size_t c)                     { return -1; }
++ssize_t AW _read_r( struct _reent *a, int b, void *c, size_t d)      { return -1; }
++ssize_t AW read(int a, void *b, size_t c)                            { return -1; }
 +off_t  AW _lseek_r(struct _reent *a, int b, off_t c, int d)          { return -1; }
 +off_t  AW lseek(int a, off_t b, int c)                               { return -1; }
 +int    AW _fstat_r(struct _reent *a, int b, struct stat *c)          { return -1; }
